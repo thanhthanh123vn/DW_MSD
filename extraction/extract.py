@@ -1,36 +1,41 @@
-
 import os
 import tarfile
-# ROOT = os.path.dirname(os.path.abspath(__file__))  # D:\DW\Staging
-from config import BASE_DIR, SONG_DATA_DIR
-
-def extract_tar_file(tar_path, extract_to):
-    """
-    Giải nén file .tar vào thư mục staging (song_data).
-    """
-    if not os.path.exists(tar_path):
-        print(f"Không tìm thấy file: {tar_path}")
-        return
-
-    os.makedirs(extract_to, exist_ok=True)
-
-    try:
-        with tarfile.open(tar_path, "r") as tar:
-            tar.extractall(path=extract_to)
-            print(f"Đã giải nén {tar_path} vào {extract_to}")
-    except Exception as e:
-        print(f"Lỗi khi giải nén: {e}")
+from config import SONG_DATA_DIR
+# Import Logger
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Fix đường dẫn import
+from etl_logger import ETLLogger
 
 def main():
-  
+    # Khởi tạo logger
+    logger = ETLLogger("extraction.extract")
+    logger.start()
+
     tar_path = r"D:\DW\millionsongsubset.tar.gz"
-
-    # Thư mục đích — theo cấu trúc hệ thống
     extract_to = SONG_DATA_DIR
+    
+    try:
+        print("=== BẮT ĐẦU EXTRACT ===")
+        if not os.path.exists(tar_path):
+            raise FileNotFoundError(f"Không tìm thấy file: {tar_path}")
 
-    print("=== BẮT ĐẦU EXTRACT DỮ LIỆU TỪ FILE TAR ===")
-    extract_tar_file(tar_path, extract_to)
-    print("Hoàn tất extract, dữ liệu đã sẵn sàng trong folder staging.")
+        os.makedirs(extract_to, exist_ok=True)
+        
+        file_count = 0
+        with tarfile.open(tar_path, "r") as tar:
+            # Đếm số file sẽ giải nén
+            file_count = len(tar.getmembers())
+            tar.extractall(path=extract_to)
+            print(f"Đã giải nén {tar_path}")
+
+        # Ghi log thành công (extracted = số file, loaded = 0 vì chưa load vào DB)
+        logger.log_success(extracted=file_count, loaded=0, rejected=0)
+
+    except Exception as e:
+        print(f"Lỗi: {e}")
+        # Ghi log lỗi
+        logger.log_fail(e)
+        raise # Vẫn raise lỗi để pipeline runner biết
 
 if __name__ == "__main__":
     main()

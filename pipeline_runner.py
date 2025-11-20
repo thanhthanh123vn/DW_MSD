@@ -14,7 +14,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 # 6. Load Mart (Đưa dữ liệu báo cáo -> Ghi vào bảng Mart mart_daily_plays)
 
 SCRIPTS = [
-    "create_tables",            # <-- THÊM DÒNG NÀY
+    "create_tables",          
     "extraction.extract",
     "load.load_staging",        # Script này sẽ đọc file JSON vừa tạo ở Bước 1
     "load.load_warehouse",

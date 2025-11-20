@@ -1,18 +1,16 @@
 # sql_queries.py
 
-# DROPs
+# --- 1. DANH SÁCH DROP (Xóa bảng cũ nếu có) ---
 drop_table_queries = [
     "DROP TABLE IF EXISTS songplays;",
     "DROP TABLE IF EXISTS users;",
     "DROP TABLE IF EXISTS time;",
     "DROP TABLE IF EXISTS songs;",
-    "DROP TABLE IF EXISTS artists;"
+    "DROP TABLE IF EXISTS artists;",
+    "DROP TABLE IF EXISTS etl_logs;"  # <--- Thêm dòng này
 ]
-# sql_queries.py
 
-# ... (giữ nguyên phần imports và drop_table_queries)
-
-# CREATEs
+# --- 2. DANH SÁCH CREATE (Tạo bảng mới) ---
 create_table_queries = [
     """
     CREATE TABLE IF NOT EXISTS artists (
@@ -21,7 +19,7 @@ create_table_queries = [
         location VARCHAR(255),
         latitude DOUBLE,
         longitude DOUBLE,
-        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  
+        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """,
     """
@@ -32,7 +30,7 @@ create_table_queries = [
         year INT,
         duration DOUBLE,
         FOREIGN KEY (artist_id) REFERENCES artists(artist_id),
-        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  
+        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """,
     """
@@ -42,7 +40,7 @@ create_table_queries = [
         last_name VARCHAR(255),
         gender VARCHAR(10),
         level VARCHAR(50),
-        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  
+        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """,
     """
@@ -54,7 +52,7 @@ create_table_queries = [
         month INT,
         year INT,
         weekday INT,
-        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  
+        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """,
     """
@@ -70,41 +68,50 @@ create_table_queries = [
         user_agent VARCHAR(512),
         FOREIGN KEY (start_time) REFERENCES time(start_time),
         FOREIGN KEY (user_id) REFERENCES users(user_id),
-        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  
+        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """,
+    # --- BẢNG MỚI: ETL LOGS ---
+    """
+    CREATE TABLE IF NOT EXISTS etl_logs (
+        log_id INT AUTO_INCREMENT PRIMARY KEY,
+        package_name VARCHAR(255),
+        start_time DATETIME,
+        end_time DATETIME,
+        status VARCHAR(50),
+        rows_extracted INT DEFAULT 0,
+        rows_loaded INT DEFAULT 0,
+        rows_rejected INT DEFAULT 0,
+        error_message TEXT
     );
     """
 ]
 
-# ... (Các câu lệnh INSERT bên dưới KHÔNG CẦN SỬA, vì Database sẽ tự điền load_time)
-# INSERTs (parameterised)
+# --- 3. CÁC CÂU LỆNH INSERT DỮ LIỆU ---
+
+# (Giữ nguyên các câu insert cũ: artist_table_insert, song_table_insert, ...)
 artist_table_insert = ("""
     INSERT INTO artists (artist_id, name, location, latitude, longitude)
     VALUES (%s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
-      name = VALUES(name),
-      location = VALUES(location),
-      latitude = VALUES(latitude),
-      longitude = VALUES(longitude);
+      name = VALUES(name), location = VALUES(location),
+      latitude = VALUES(latitude), longitude = VALUES(longitude);
 """)
 
 song_table_insert = ("""
     INSERT INTO songs (song_id, title, artist_id, year, duration)
     VALUES (%s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
-      title = VALUES(title),
-      artist_id = VALUES(artist_id),
-      year = VALUES(year),
-      duration = VALUES(duration);
+      title = VALUES(title), artist_id = VALUES(artist_id),
+      year = VALUES(year), duration = VALUES(duration);
 """)
 
 user_table_insert = ("""
     INSERT INTO users (user_id, first_name, last_name, gender, level)
     VALUES (%s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
-      first_name = VALUES(first_name),
-      last_name = VALUES(last_name),
-      gender = VALUES(gender),
-      level = VALUES(level);
+      first_name = VALUES(first_name), last_name = VALUES(last_name),
+      gender = VALUES(gender), level = VALUES(level);
 """)
 
 time_table_insert = ("""
@@ -119,11 +126,34 @@ songplay_table_insert = ("""
     ON DUPLICATE KEY UPDATE session_id = VALUES(session_id);
 """)
 
-# song select to find song_id, artist_id given song title, artist name and duration
 song_select = ("""
     SELECT s.song_id, a.artist_id
     FROM songs s
     JOIN artists a ON s.artist_id = a.artist_id
     WHERE s.title = %s AND a.name = %s AND s.duration = %s
     LIMIT 1;
+""")
+
+# --- 4. QUERIES CHO LOGGING (MỚI) ---
+etl_log_insert = ("""
+    INSERT INTO etl_logs (package_name, start_time, status)
+    VALUES (%s, NOW(), 'RUNNING');
+""")
+
+etl_log_update_success = ("""
+    UPDATE etl_logs
+    SET end_time = NOW(),
+        status = 'SUCCESS',
+        rows_extracted = %s,
+        rows_loaded = %s,
+        rows_rejected = %s
+    WHERE log_id = %s;
+""")
+
+etl_log_update_fail = ("""
+    UPDATE etl_logs
+    SET end_time = NOW(),
+        status = 'FAILED',
+        error_message = %s
+    WHERE log_id = %s;
 """)

@@ -85,11 +85,11 @@ def process_song_file(cur, filepath):
             try:
                 cur.execute(song_table_insert, song_data)
             except Exception:
-                 # Bỏ qua lỗi (ví dụ: trùng lặp PRIMARY KEY)
+                
                 pass
 
     except Exception as e:
-        # Lỗi nghiêm trọng (vd: file h5 bị hỏng)
+       
         print(f"Lỗi nghiêm trọng khi đọc file H5 {filepath}: {e}")
 
 def process_all_songs(cur, conn, data_path):
