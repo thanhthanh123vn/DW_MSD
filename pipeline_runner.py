@@ -1,67 +1,73 @@
+# pipeline_runner.py
 import subprocess
 import sys
 import os
 
-ROOT = os.path.dirname(os.path.abspath(__file__))  # D:\DW\Staging
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# Sửa thành TÊN MODULE (dấu chấm)
+# Danh sách các bước theo đúng thứ tự chuẩn:
+# 1. Tạo bảng (quan trọng nhất, nếu không sẽ lỗi "Table doesn't exist")
+# 2. Extract (Giải nén data nhạc)
+# 3. Load Staging (Đọc JSON log & H5 music -> Ghi vào bảng Staging: songs, artists, songplays...)
+# 4. Load Warehouse (Xử lý dữ liệu gốc H5 chi tiết -> Ghi vào Warehouse)
+# 5. Transform (Tổng hợp dữ liệu -> Ghi vào bảng aggregate songplays_daily)
+# 6. Load Mart (Đưa dữ liệu báo cáo -> Ghi vào bảng Mart mart_daily_plays)
+
 SCRIPTS = [
+    "create_tables",            # <-- THÊM DÒNG NÀY
     "extraction.extract",
-    "load.load_staging",
+    "load.load_staging",        # Script này sẽ đọc file JSON vừa tạo ở Bước 1
     "load.load_warehouse",
     "transform.create_aggregate",
     "load.load_mart"
 ]
 
 def run_script(module_name):
-    print(f"\nRunning {module_name}\n")
+    print(f"\n>>> Running {module_name}...")
     
-    # --- BẮT ĐẦU THAY ĐỔI QUAN TRỌNG ---
-    
-    # 1. Lấy một bản sao của môi trường hiện tại
+    # Thiết lập môi trường UTF-8 để tránh lỗi font chữ/ký tự lạ
     child_env = os.environ.copy()
-    
-    # 2. Đặt biến PYTHONUTF8=1. 
-    #    Biến này "ép" trình thông dịch Python của script con
-    #    phải sử dụng UTF-8 cho mọi thứ (stdout, stderr, etc.)
     child_env["PYTHONUTF8"] = "1"
 
-    # 3. Chạy script con với môi trường đã được "ép" UTF-8
+    # Chạy script con
     res = subprocess.run(
         [sys.executable, "-m", module_name], 
         cwd=ROOT,
-        capture_output=True, # Vẫn bắt output dạng bytes
-        env=child_env        # <-- Sử dụng môi trường đã sửa
+        capture_output=True, 
+        env=child_env
     )
     
-    # --- KẾT THÚC THAY ĐỔI ---
-    
-    # 4. Tự giải mã output (dạng bytes) sang string (utf-8)
-    #    và "ignore" (lờ đi) bất kỳ byte rác nào (như lỗi 0xd0)
+    # In kết quả ra màn hình
     if res.stdout:
         print(res.stdout.decode('utf-8', errors='ignore'))
     
-    # Nếu script chạy bị lỗi (returncode != 0)
+    # Báo lỗi nếu có
     if res.returncode != 0:
-        print("ERROR (stderr):")
-        # Tự giải mã lỗi (stderr) và bỏ qua lỗi
+        print(f"!!! ERROR in {module_name} (stderr):")
         if res.stderr:
             print(res.stderr.decode('utf-8', errors='ignore'))
+        # Dừng pipeline nếu gặp lỗi
         raise SystemExit(res.returncode)
 
 def main():
     for s in SCRIPTS:
-        script_path = os.path.join(ROOT, *s.split('.')) + ".py"
-        
+        # Kiểm tra file tồn tại trước khi chạy (đường dẫn xử lý dấu chấm thành dấu gạch chéo)
+        # Lưu ý: create_tables là file gốc, các file khác nằm trong thư mục con
+        if "." in s:
+            script_path = os.path.join(ROOT, *s.split('.')) + ".py"
+        else:
+            script_path = os.path.join(ROOT, s + ".py")
+
         if not os.path.exists(script_path):
-            print(f"Không tìm thấy script: {script_path} — Kiểm tra lại đường dẫn.")
-            raise SystemExit(1)
+            print(f"Cảnh báo: Không tìm thấy file {script_path}, bỏ qua bước này.")
+            continue
             
         try:
             run_script(s)
-        except SystemExit as e:
-            print("Pipeline stopped due to error.")
+        except SystemExit:
+            print("Pipeline đã dừng lại do lỗi.")
             break
+    print("\n=== PIPELINE HOÀN TẤT ===")
 
 if __name__ == "__main__":
     main()

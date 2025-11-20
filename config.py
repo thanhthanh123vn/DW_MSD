@@ -3,10 +3,10 @@ import os
 
 # MySQL connection (FreeSQLDatabase sample)
 DB_CONFIG = {
-    "host": os.getenv("DW_DB_HOST", "sql3.freesqldatabase.com"),
-    "user": os.getenv("DW_DB_USER", "sql3806292"),
-    "password": os.getenv("DW_DB_PASSWORD", "M5migIKcRH"),
-    "database": os.getenv("DW_DB_NAME", "sql3806292"),
+    "host": os.getenv("DW_DB_HOST", "localhost"),
+    "user": os.getenv("DW_DB_USER", "root"),
+    "password": os.getenv("DW_DB_PASSWORD", ""),
+    "database": os.getenv("DW_DB_NAME", "dms"),
     "port": int(os.getenv("DW_DB_PORT", 3306)),
 }
 

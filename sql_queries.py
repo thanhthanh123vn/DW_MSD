@@ -8,6 +8,9 @@ drop_table_queries = [
     "DROP TABLE IF EXISTS songs;",
     "DROP TABLE IF EXISTS artists;"
 ]
+# sql_queries.py
+
+# ... (giữ nguyên phần imports và drop_table_queries)
 
 # CREATEs
 create_table_queries = [
@@ -17,7 +20,8 @@ create_table_queries = [
         name VARCHAR(255),
         location VARCHAR(255),
         latitude DOUBLE,
-        longitude DOUBLE
+        longitude DOUBLE,
+        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  
     );
     """,
     """
@@ -27,7 +31,8 @@ create_table_queries = [
         artist_id VARCHAR(255),
         year INT,
         duration DOUBLE,
-        FOREIGN KEY (artist_id) REFERENCES artists(artist_id)
+        FOREIGN KEY (artist_id) REFERENCES artists(artist_id),
+        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  
     );
     """,
     """
@@ -36,7 +41,8 @@ create_table_queries = [
         first_name VARCHAR(255),
         last_name VARCHAR(255),
         gender VARCHAR(10),
-        level VARCHAR(50)
+        level VARCHAR(50),
+        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  
     );
     """,
     """
@@ -47,7 +53,8 @@ create_table_queries = [
         week INT,
         month INT,
         year INT,
-        weekday INT
+        weekday INT,
+        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  
     );
     """,
     """
@@ -62,11 +69,13 @@ create_table_queries = [
         location VARCHAR(255),
         user_agent VARCHAR(512),
         FOREIGN KEY (start_time) REFERENCES time(start_time),
-        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        FOREIGN KEY (user_id) REFERENCES users(user_id),
+        load_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  
     );
     """
 ]
 
+# ... (Các câu lệnh INSERT bên dưới KHÔNG CẦN SỬA, vì Database sẽ tự điền load_time)
 # INSERTs (parameterised)
 artist_table_insert = ("""
     INSERT INTO artists (artist_id, name, location, latitude, longitude)
