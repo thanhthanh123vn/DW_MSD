@@ -1,7 +1,6 @@
 # etl_logger.py
 from db import create_connection
 from sql_queries import etl_log_insert, etl_log_update_success, etl_log_update_fail
-import traceback
 
 class ETLLogger:
     def __init__(self, package_name):
@@ -11,42 +10,47 @@ class ETLLogger:
         self.conn = None
 
     def start(self):
-        """Ghi nhận bắt đầu chạy script"""
-        self.cur, self.conn = create_connection()
+        """Bắt đầu ghi log: Trạng thái RUNNING"""
         try:
+            self.cur, self.conn = create_connection()
             self.cur.execute(etl_log_insert, (self.package_name,))
             self.conn.commit()
-            self.log_id = self.cur.lastrowid # Lấy ID vừa tạo
-            print(f"[LOG] Started logging for {self.package_name} (ID: {self.log_id})")
+            self.log_id = self.cur.lastrowid
+            print(f"[LOG STARTED] {self.package_name} (Log ID: {self.log_id})")
         except Exception as e:
-            print(f"[LOG ERROR] Could not start log: {e}")
+            print(f"[LOG ERROR] Không thể khởi tạo log: {e}")
 
     def log_success(self, extracted=0, loaded=0, rejected=0):
-        """Ghi nhận chạy thành công"""
-        if not self.log_id: return
+        """Ghi nhận thành công: Trạng thái SUCCESS"""
+        if not self.log_id or not self.conn:
+            return
         try:
             self.cur.execute(etl_log_update_success, (extracted, loaded, rejected, self.log_id))
             self.conn.commit()
-            print(f"[LOG] Finished successfully. Loaded: {loaded}")
+            print(f"[LOG SUCCESS] Extracted: {extracted}, Loaded: {loaded}, Rejected: {rejected}")
         except Exception as e:
-            print(f"[LOG ERROR] Could not update success log: {e}")
+            print(f"[LOG ERROR] Lỗi khi update success: {e}")
         finally:
             self.close()
 
-    def log_fail(self, error_msg):
-        """Ghi nhận lỗi"""
-        if not self.log_id: return
+    def log_fail(self, error_message):
+        """Ghi nhận thất bại: Trạng thái FAILED"""
+        if not self.log_id or not self.conn:
+            return
         try:
-            # Cắt chuỗi lỗi nếu quá dài
-            str_error = str(error_msg)[:5000]
-            self.cur.execute(etl_log_update_fail, (str_error, self.log_id))
+            # Cắt lỗi nếu quá dài để tránh lỗi DB
+            err_str = str(error_message)[:5000]
+            self.cur.execute(etl_log_update_fail, (err_str, self.log_id))
             self.conn.commit()
-            print(f"[LOG] Marked as FAILED.")
+            print(f"[LOG FAILED] Đã ghi nhận lỗi vào DB.")
         except Exception as e:
-            print(f"[LOG ERROR] Could not update failure log: {e}")
+            print(f"[LOG ERROR] Lỗi khi update fail: {e}")
         finally:
             self.close()
 
     def close(self):
         if self.conn:
-            self.conn.close()
+            try:
+                self.conn.close()
+            except:
+                pass

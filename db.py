@@ -15,8 +15,8 @@ def create_connection():
             autocommit=False
         )
         cur = conn.cursor(buffered=True)  # buffered để fetchone() an toàn
-        print("Kết nối thành công tới MySQL!")
+        print("Ket noi thanh cong toi MySQL!")
         return cur, conn
     except Error as e:
-        print(f"Lỗi kết nối DB: {e}")
+        print(f"Loi ket noi DB: {e}")
         raise
