@@ -17,7 +17,6 @@ STAGING_DATA_DIR = os.getenv("DW_STAGING_DATA_DIR", os.path.join(BASE_DIR, "data
 SONG_DATA_DIR = os.path.join(STAGING_DATA_DIR, "song_data")
 LOG_DATA_DIR = os.path.join(STAGING_DATA_DIR, "log_data")
 
-# Schedules (document only — real scheduling via cron / task scheduler)
 SCHEDULE = {
     "extract": "18:00",
     "load_staging": "19:00",
