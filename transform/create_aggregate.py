@@ -1,66 +1,57 @@
-# scripts/create_aggregate.py
+# transform/create_aggregate.py
 import sys
 import os
 
-# --- Cấu hình để Python tìm thấy file etl_logger.py ở thư mục cha ---
-current_dir = os.path.dirname(os.path.abspath(__file__)) # .../transform
-parent_dir = os.path.dirname(current_dir)                # .../
+# Cấu hình import
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from db import  create_connection_Control
+from db import create_connection_Mart
 from etl_logger import ETLLogger
 
 def create_aggregate_table(cur, conn):
-    # 1. Tạo bảng songplays_daily nếu chưa có
-    q = """
-    CREATE TABLE IF NOT EXISTS songplays_daily (
-        date DATE PRIMARY KEY,
-        play_count INT
-    );
-    """
-    cur.execute(q)
-    conn.commit()
-
-    # 2. Tính toán và đổ dữ liệu vào (Aggregation)
+    print("Đang tính toán Songplays Daily...")
+    
+    # 1. Insert vào bảng trong MART (kết nối hiện tại)
+    # 2. Select từ bảng trong WAREHOUSE (dùng cú pháp database_warehouse.table)
     query_insert = """
     INSERT INTO songplays_daily (date, play_count)
-    SELECT DATE(start_time) as date, COUNT(*) as play_count
-    FROM songplays
+    SELECT 
+        DATE(start_time) as date, 
+        COUNT(*) as play_count
+    FROM database_warehouse.songplays
     GROUP BY DATE(start_time)
-    ON DUPLICATE KEY UPDATE play_count = VALUES(play_count);
+    ON DUPLICATE KEY UPDATE 
+        play_count = VALUES(play_count),
+        updated_at = NOW();
     """
-    cur.execute(query_insert)
     
-    # Lấy số dòng được insert/update
+    cur.execute(query_insert)
     rows_affected = cur.rowcount
     conn.commit()
     
-    print(f"Aggregate table created/updated. Rows affected: {rows_affected}")
+    print(f" -> Đã cập nhật songplays_daily. Số dòng ảnh hưởng: {rows_affected}")
     return rows_affected
 
 def main():
-    # Khởi tạo Logger
     logger = ETLLogger("transform.create_aggregate")
     logger.start()
 
-    cur, conn = create_connection_Control()
+    # Kết nối tới MART vì đây là nơi chứa bảng kết quả (songplays_daily)
+    cur, conn = create_connection_Mart()
     
     try:
-        # Chạy logic chính
         rows = create_aggregate_table(cur, conn)
         conn.close()
         
-        # Ghi log thành công
-        # Với bước transform: extracted = loaded = số dòng tạo ra
         logger.log_success(extracted=rows, loaded=rows, rejected=0)
         print("Create aggregate done.")
         
     except Exception as e:
-        # Ghi log thất bại
         print(f"Error: {e}")
         logger.log_fail(str(e))
-        if conn:
-            conn.close()
+        if conn: conn.close()
         raise
 
 if __name__ == "__main__":

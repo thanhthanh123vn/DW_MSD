@@ -1,75 +1,33 @@
 # db.py
 import mysql.connector
 from mysql.connector import Error
-from config import DB_CONFIG
+from config import DB_COMMON, DB_NAMES
+
+def _get_connection(db_name_key):
+    """Hàm nội bộ để tạo kết nối dựa trên key"""
+    try:
+        conn = mysql.connector.connect(
+            host=DB_COMMON["host"],
+            user=DB_COMMON["user"],
+            password=DB_COMMON["password"],
+            port=DB_COMMON["port"],
+            database=DB_NAMES[db_name_key], # Lấy tên DB từ config
+            autocommit=False
+        )
+        cur = conn.cursor(buffered=True)
+        return cur, conn
+    except Error as e:
+        print(f"Error connecting to {DB_NAMES[db_name_key]}: {e}")
+        raise
 
 def create_connection_Staging():
-    """Trả về (cursor, conn) giống mã cũ."""
-    try:
-        conn = mysql.connector.connect(
-            host=DB_CONFIG["host"],
-            user=DB_CONFIG["user"],
-            password=DB_CONFIG["password"],
-            database="database_staging",
-            port=DB_CONFIG.get("port", 3306),
-            autocommit=False
-        )
-        cur = conn.cursor(buffered=True)  # buffered để fetchone() an toàn
-        print("Ket noi thanh cong toi MySQL!")
-        return cur, conn
-    except Error as e:
-        print(f"Loi ket noi DB: {e}")
-        raise
-def create_connection_Warehouse():
-    """Trả về (cursor, conn) giống mã cũ."""
-    try:
-        conn = mysql.connector.connect(
-            host=DB_CONFIG["host"],
-            user=DB_CONFIG["user"],
-            password=DB_CONFIG["password"],
-            database="database_warehouse",
-            port=DB_CONFIG.get("port", 3306),
-            autocommit=False
-        )
-        cur = conn.cursor(buffered=True)  # buffered để fetchone() an toàn
-        print("Ket noi thanh cong toi MySQL!")
-        return cur, conn
-    except Error as e:
-        print(f"Loi ket noi DB: {e}")
-        raise
+    return _get_connection("staging")
 
+def create_connection_Warehouse():
+    return _get_connection("warehouse")
 
 def create_connection_Control():
-    """Trả về (cursor, conn) giống mã cũ."""
-    try:
-        conn = mysql.connector.connect(
-            host=DB_CONFIG["host"],
-            user=DB_CONFIG["user"],
-            password=DB_CONFIG["password"],
-            database="database_control",
-            port=DB_CONFIG.get("port", 3306),
-            autocommit=False
-        )
-        cur = conn.cursor(buffered=True)  # buffered để fetchone() an toàn
-        print("Ket noi thanh cong toi MySQL!")
-        return cur, conn
-    except Error as e:
-        print(f"Loi ket noi DB: {e}")
-        
+    return _get_connection("control")
+
 def create_connection_Mart():
-    """Trả về (cursor, conn) giống mã cũ."""
-    try:
-        conn = mysql.connector.connect(
-            host=DB_CONFIG["host"],
-            user=DB_CONFIG["user"],
-            password=DB_CONFIG["password"],
-            database="database_mart",
-            port=DB_CONFIG.get("port", 3306),
-            autocommit=False
-        )
-        cur = conn.cursor(buffered=True)  # buffered để fetchone() an toàn
-        print("Ket noi thanh cong toi MySQL!")
-        return cur, conn
-    except Error as e:
-        print(f"Loi ket noi DB: {e}")
-        raise
+    return _get_connection("mart")

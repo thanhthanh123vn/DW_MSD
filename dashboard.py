@@ -1,22 +1,22 @@
-# dashboard_advanced.py
+# dashboard.py
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
+import mysql.connector
 import subprocess
-import os
 import sys
-from db import create_connection_Mart
+import os
+from config import DB_COMMON, DB_NAMES
 
 # --- CẤU HÌNH TRANG ---
 st.set_page_config(
-    page_title="Data Warehouse Monitor Pro",
-    page_icon="🎧",
+    page_title="Music Data Warehouse Pro", 
+    page_icon="🎧", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- CSS TÙY CHỈNH ---
+# --- CSS TÙY CHỈNH CHO ĐẸP ---
 st.markdown("""
 <style>
     .metric-card {
@@ -24,264 +24,244 @@ st.markdown("""
         border-radius: 10px;
         padding: 15px;
         text-align: center;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
     }
-    .stButton>button {
-        width: 100%;
-    }
+    h1, h2, h3 { color: #2E86C1; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- HÀM HỖ TRỢ ---
-@st.cache_data(ttl=300)
-def run_query(query, params=None):
-    """Chạy SQL query an toàn và trả về DataFrame."""
+@st.cache_data(ttl=60) # Cache 60s để không query liên tục
+def get_data(query, db_key):
+    """Kết nối và query dữ liệu từ DB cụ thể (Mart hoặc Warehouse)"""
     conn = None
     try:
-        cur, conn = create_connection()
-        cur.execute(query, params or ())
-        if cur.description:
-            columns = [desc[0] for desc in cur.description]
-            data = cur.fetchall()
-            return pd.DataFrame(data, columns=columns)
-        return pd.DataFrame()
+        conn = mysql.connector.connect(
+            host=DB_COMMON["host"],
+            user=DB_COMMON["user"],
+            password=DB_COMMON["password"],
+            port=DB_COMMON["port"],
+            database=DB_NAMES[db_key]
+        )
+        return pd.read_sql(query, conn)
     except Exception as e:
-        st.error(f"Lỗi SQL: {e}")
         return pd.DataFrame()
     finally:
         if conn: conn.close()
 
 def run_script(script_name):
-    """Hàm chạy script python từ giao diện."""
+    """Chạy script python từ giao diện"""
     try:
+        # Tìm đường dẫn tuyệt đối của script
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), script_name)
         result = subprocess.run(
-            [sys.executable, "-m", script_name],
+            [sys.executable, script_path],
             capture_output=True,
-            text=True,
-            cwd=os.path.dirname(os.path.abspath(__file__))
+            text=True
         )
         if result.returncode == 0:
-            st.success(f"✅ Chạy {script_name} thành công!")
-            st.code(result.stdout)
+            st.toast(f"✅ Chạy {script_name} thành công!", icon="🎉")
+            st.success(result.stdout)
         else:
-            st.error(f"❌ Lỗi khi chạy {script_name}")
-            st.code(result.stderr)
+            st.error(f"❌ Lỗi: {result.stderr}")
     except Exception as e:
         st.error(f"Không thể chạy script: {e}")
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.title("🎛️ Điều khiển")
+    st.title("🎛️ Control Panel")
+    st.info("Hệ thống: Online 🟢")
     
-    st.subheader("Bộ lọc dữ liệu")
-    filter_level = st.multiselect(
-        "Chọn loại tài khoản:",
-        options=["free", "paid"],
-        default=["free", "paid"]
-    )
-    
-    df_years = run_query("SELECT DISTINCT year FROM time ORDER BY year DESC")
-    selected_year = st.selectbox("Chọn năm dữ liệu:", df_years['year']) if not df_years.empty else None
-
     st.markdown("---")
-    st.caption("System Status: 🟢 Online")
+    st.header("⚙️ Tác vụ nhanh")
+    if st.button("🛠️ 1. Fix Data (Sửa lỗi 0 dòng)"):
+        with st.spinner("Đang đồng bộ dữ liệu thật..."):
+            run_script("fix_data.py")
+            st.cache_data.clear() # Xóa cache để load lại dữ liệu mới
+            
+    if st.button("🔄 2. Reload Mart (Cập nhật báo cáo)"):
+        with st.spinner("Đang tính toán lại báo cáo..."):
+            run_script("load/load_mart.py")
+            st.cache_data.clear()
 
 # --- GIAO DIỆN CHÍNH ---
 st.title("🎧 Music Streaming Data Warehouse")
+st.caption("Báo cáo thông minh từ hệ thống 4 Database (Staging -> Warehouse -> Mart)")
 
-tab1, tab2, tab3 = st.tabs(["📊 Tổng Quan (Overview)", "🔎 Phân Tích Sâu (Analytics)", "⚙️ Quản Trị (Ops)"])
+# TABS
+tab_overview, tab_artist, tab_deep_dive, tab_logs = st.tabs([
+    "📊 Tổng Quan", 
+    "🎤 Phân Tích Nghệ Sĩ", 
+    "🔎 Thói Quen Người Dùng",
+    "📝 Nhật Ký Hệ Thống"
+])
 
-# ==========================================
-# TAB 1: TỔNG QUAN
-# ==========================================
-with tab1:
-    st.markdown("### 📈 Chỉ số quan trọng (KPIs)")
+# ==================================================
+# TAB 1: TỔNG QUAN (Lấy từ MART)
+# ==================================================
+with tab_overview:
+    st.subheader("📈 Chỉ số quan trọng (KPIs)")
     
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        # Sử dụng try-except để tránh lỗi nếu bảng chưa có dữ liệu
-        try:
-            count_plays = run_query("SELECT COUNT(*) as c FROM songplays").iloc[0]['c']
-            st.metric("Tổng lượt nghe", f"{count_plays:,}")
-        except:
-            st.metric("Tổng lượt nghe", "0")
+    # Lấy dữ liệu từ bảng system_overview trong Mart
+    try:
+        df_overview = get_data("SELECT * FROM system_overview", "mart")
         
-    with col2:
-        try:
-            count_users = run_query("SELECT COUNT(*) as c FROM users").iloc[0]['c']
-            st.metric("Người dùng", f"{count_users}")
-        except:
-            st.metric("Người dùng", "0")
+        # Helper function
+        def get_metric(name):
+            if not df_overview.empty:
+                row = df_overview[df_overview['metric_name'] == name]
+                if not row.empty:
+                    return row.iloc[0]['metric_value']
+            return "0"
 
-    with col3:
-        try:
-            count_songs = run_query("SELECT COUNT(*) as c FROM songs").iloc[0]['c']
-            st.metric("Kho nhạc (Bài)", f"{count_songs:,}")
-        except:
-             st.metric("Kho nhạc (Bài)", "0")
-
-    with col4:
-        try:
-            avg_duration = run_query("SELECT AVG(duration) as c FROM songs").iloc[0]['c']
-            val = avg_duration if avg_duration else 0
-            st.metric("Thời lượng TB", f"{round(val/60, 2)} phút")
-        except:
-             st.metric("Thời lượng TB", "0 phút")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Tổng lượt nghe", get_metric("Total Plays"), delta="All time")
+        c2.metric("Người dùng", get_metric("Total Users"))
+        c3.metric("Kho nhạc", get_metric("Total Songs"))
+        c4.metric("Top Trending", get_metric("Top Trending Artist"))
+        
+    except Exception as e:
+        st.warning("⚠️ Chưa có dữ liệu Overview. Vui lòng bấm 'Fix Data' bên trái.")
 
     st.markdown("---")
-
-    st.subheader("📅 Xu hướng lượt nghe theo thời gian")
-    trend_query = "SELECT date, total_plays FROM mart_daily_plays ORDER BY date"
-    df_trend = run_query(trend_query)
-    if not df_trend.empty:
-        fig = px.area(df_trend, x='date', y='total_plays', 
-                      title="Biểu đồ vùng: Số lượt nghe hàng ngày",
-                      color_discrete_sequence=['#FF4B4B'])
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("Chưa có dữ liệu Mart. Hãy chạy 'Load Mart' ở tab Quản trị.")
-
-# ==========================================
-# TAB 2: PHÂN TÍCH SÂU
-# ==========================================
-with tab2:
-    row1_col1, row1_col2 = st.columns([2, 1])
+    st.subheader("📅 Xu hướng nghe nhạc theo ngày")
     
-    with row1_col1:
-        st.subheader("🗺️ Bản đồ phân bố Nghệ sĩ")
-        map_query = """
-            SELECT name, location, latitude, longitude
-            FROM artists 
-            WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-            LIMIT 500
-        """
-        df_map = run_query(map_query)
-        if not df_map.empty:
-            st.map(df_map, latitude='latitude', longitude='longitude')
-        else:
-            st.info("Dữ liệu nghệ sĩ chưa có tọa độ.")
+    df_daily = get_data("SELECT date, play_count FROM songplays_daily ORDER BY date", "mart")
+    if not df_daily.empty:
+        fig_trend = px.area(df_daily, x='date', y='play_count', 
+                            title="Số lượt nghe hàng ngày", markers=True,
+                            color_discrete_sequence=['#FF4B4B'])
+        st.plotly_chart(fig_trend, use_container_width=True)
+    else:
+        st.info("Chưa có dữ liệu lịch sử nghe.")
 
-    with row1_col2:
-        st.subheader("🖥️ User Agent (Thiết bị)")
+# ==================================================
+# TAB 2: NGHỆ SĨ (Lấy từ MART + WAREHOUSE)
+# ==================================================
+with tab_artist:
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.subheader("🏆 Top 10 Nghệ sĩ & Bài hát Hit")
+        df_top = get_data("""
+            SELECT artist_name, total_plays, top_song_name, top_song_plays 
+            FROM top_artists 
+            ORDER BY total_plays DESC LIMIT 10
+        """, "mart")
+        
+        if not df_top.empty:
+            fig_bar = px.bar(
+                df_top, y='artist_name', x='total_plays', 
+                orientation='h',
+                text='top_song_name',
+                title="Xếp hạng nghệ sĩ (kèm bài hát nổi bật)",
+                labels={'total_plays': 'Lượt nghe', 'artist_name': 'Nghệ sĩ'},
+                color='total_plays', color_continuous_scale='Viridis'
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.warning("Dữ liệu trống. Hãy chạy 'Fix Data' và 'Reload Mart'.")
+
+    with col2:
+        st.subheader("🗺️ Bản đồ phân bố")
+        st.caption("Nghệ sĩ đến từ đâu?")
+        # Lấy location từ Mart (đã được làm giàu)
+        df_loc = get_data("""
+            SELECT location, total_plays 
+            FROM top_artists 
+            WHERE location IS NOT NULL AND location != 'Unknown'
+            LIMIT 50
+        """, "mart")
+        
+        if not df_loc.empty:
+            # Vì location dạng text, ta chỉ hiện bảng thống kê (muốn hiện map cần tọa độ từ Warehouse)
+            st.dataframe(df_loc, use_container_width=True, hide_index=True)
+        else:
+            st.info("Chưa có thông tin địa điểm.")
+
+# ==================================================
+# TAB 3: THÓI QUEN (Deep Dive vào WAREHOUSE)
+# ==================================================
+with tab_deep_dive:
+    st.markdown("### 🕵️ Phân tích hành vi (Truy vấn trực tiếp Warehouse)")
+    
+    col_heat, col_os = st.columns([2, 1])
+    
+    with col_heat:
+        st.subheader("🔥 Heatmap: Giờ vàng nghe nhạc")
+        # Query phức tạp này lấy từ Warehouse
+        heatmap_query = """
+            SELECT t.weekday, t.hour, COUNT(*) as plays
+            FROM songplays s
+            JOIN time t ON s.start_time = t.start_time
+            GROUP BY t.weekday, t.hour
+        """
+        df_heat = get_data(heatmap_query, "warehouse") # Query Warehouse
+        
+        if not df_heat.empty:
+            # Pivot data
+            pivot_heat = df_heat.pivot(index='weekday', columns='hour', values='plays').fillna(0)
+            # Reindex cho đủ 7 ngày 24h
+            pivot_heat = pivot_heat.reindex(index=range(7), columns=range(24), fill_value=0)
+            
+            fig_heat = px.imshow(
+                pivot_heat,
+                labels=dict(x="Giờ trong ngày", y="Thứ (0=T2, 6=CN)", color="Lượt nghe"),
+                x=range(24),
+                y=['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+                aspect="auto", color_continuous_scale='Magma'
+            )
+            st.plotly_chart(fig_heat, use_container_width=True)
+        else:
+            st.info("Chưa có dữ liệu thời gian chi tiết trong Warehouse.")
+
+    with col_os:
+        st.subheader("📱 Thiết bị sử dụng")
+        # Phân tích User Agent đơn giản
         ua_query = """
             SELECT 
                 CASE 
-                    WHEN user_agent LIKE '%Macintosh%' THEN 'Mac'
                     WHEN user_agent LIKE '%Windows%' THEN 'Windows'
+                    WHEN user_agent LIKE '%Mac%' THEN 'Mac'
                     WHEN user_agent LIKE '%Linux%' THEN 'Linux'
-                    WHEN user_agent LIKE '%iPhone%' THEN 'iPhone'
-                    ELSE 'Other'
-                END as os,
+                    ELSE 'Mobile/Other'
+                END as platform,
                 COUNT(*) as count
             FROM songplays
-            GROUP BY os
+            GROUP BY platform
         """
-        df_ua = run_query(ua_query)
+        df_ua = get_data(ua_query, "warehouse")
         if not df_ua.empty:
-            fig_donut = px.pie(df_ua, names='os', values='count', hole=0.4)
-            st.plotly_chart(fig_donut, use_container_width=True)
+            fig_pie = px.pie(df_ua, names='platform', values='count', hole=0.4)
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.info("Chưa có dữ liệu User Agent.")
 
-    st.markdown("---")
+# ==================================================
+# TAB 4: LOGS (Lấy từ CONTROL)
+# ==================================================
+with tab_logs:
+    st.subheader("📝 Nhật ký ETL gần nhất")
     
-    st.subheader("🔥 Heatmap: Thói quen nghe nhạc")
-    st.caption("Trục dọc: Thứ trong tuần (0=Thứ 2), Trục ngang: Giờ trong ngày")
+    log_filter = st.radio("Lọc trạng thái:", ["ALL", "SUCCESS", "FAILED"], horizontal=True)
     
-    heat_query = """
-        SELECT weekday, hour, COUNT(*) as plays
-        FROM time
-        GROUP BY weekday, hour
-    """
-    df_heat = run_query(heat_query)
-    
-    if not df_heat.empty:
-        # Pivot table
-        heatmap_data = df_heat.pivot(index='weekday', columns='hour', values='plays')
-        
-        # --- FIX LỖI VALUE ERROR TẠI ĐÂY ---
-        # Tạo khung dữ liệu chuẩn đủ 7 ngày và 24 giờ
-        full_weekdays = range(7) 
-        full_hours = range(24)
-        
-        # Reindex: Ép dữ liệu phải có đủ các dòng/cột này, thiếu thì điền 0
-        heatmap_data = heatmap_data.reindex(index=full_weekdays, columns=full_hours, fill_value=0)
-        # -----------------------------------
-
-        fig_heat = px.imshow(heatmap_data, 
-                             labels=dict(x="Giờ", y="Thứ", color="Lượt nghe"),
-                             x=heatmap_data.columns,
-                             y=['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'], # Dữ liệu đã đủ 7 dòng, khớp với 7 nhãn này
-                             color_continuous_scale='Viridis',
-                             aspect="auto")
-        st.plotly_chart(fig_heat, use_container_width=True)
-    else:
-        st.info("Chưa có dữ liệu thời gian.")
-
-# ==========================================
-# TAB 3: QUẢN TRỊ HỆ THỐNG
-# ==========================================
-with tab3:
-    st.header("🛠️ Control Panel")
-    
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    
-    if c1.button("1. Create Tables"):
-        with st.spinner("Đang tạo bảng..."):
-            run_script("create_tables")
-            
-    if c2.button("2. Extract Data"):
-        with st.spinner("Đang giải nén..."):
-            run_script("extraction.extract")
-            
-    if c3.button("3. Load Staging"):
-        with st.spinner("Đang load staging..."):
-            run_script("load.load_staging")
-            
-    if c4.button("4. Load Warehouse"):
-        with st.spinner("Đang load warehouse..."):
-            run_script("load.load_warehouse")
-
-    if c5.button("5. Transform"):
-        with st.spinner("Đang transform..."):
-            run_script("transform.create_aggregate")
-            
-    if c6.button("6. Load Mart"):
-        with st.spinner("Đang tạo báo cáo..."):
-            run_script("load.load_mart")
-            st.cache_data.clear()
-
-    st.markdown("---")
-    st.subheader("📝 Nhật ký hệ thống (ETL Logs)")
-    
-    log_filter = st.radio("Trạng thái log:", ["ALL", "SUCCESS", "FAILED"], horizontal=True)
-    
-    base_log_query = """
-        SELECT log_id, package_name, start_time, end_time, status, 
-               rows_extracted, rows_loaded, error_message
-        FROM etl_logs
-    """
-    
+    base_query = "SELECT log_id, package_name, start_time, status, error_message FROM etl_logs"
     if log_filter != "ALL":
-        base_log_query += f" WHERE status = '{log_filter}'"
-        
-    base_log_query += " ORDER BY start_time DESC LIMIT 50"
+        base_query += f" WHERE status = '{log_filter}'"
+    base_query += " ORDER BY start_time DESC LIMIT 20"
     
-    df_logs = run_query(base_log_query)
+    df_logs = get_data(base_query, "control") # Query Control DB
     
     if not df_logs.empty:
-        st.dataframe(
-            df_logs, 
-            use_container_width=True,
-            column_config={
-                "status": st.column_config.TextColumn(
-                    "Trạng thái",
-                    validate="^(SUCCESS|FAILED|RUNNING)$"
-                ),
-                "error_message": "Chi tiết lỗi"
-            }
-        )
+        # Tô màu trạng thái
+        def color_status(val):
+            color = '#90EE90' if val == 'SUCCESS' else '#FFB6C1' if val == 'FAILED' else '#FFFFE0'
+            return f'background-color: {color}'
+
+        st.dataframe(df_logs.style.applymap(color_status, subset=['status']), use_container_width=True)
     else:
         st.info("Chưa có log nào.")
 
 # Footer
 st.markdown("---")
-st.markdown("© 2024 Data Warehouse Project | Powered by **Streamlit** & **MySQL**")
+st.markdown("© 2024 Music Warehouse | Powered by **Streamlit** & **MySQL**")
