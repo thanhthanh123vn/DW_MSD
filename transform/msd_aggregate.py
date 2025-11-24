@@ -1,64 +1,78 @@
-# transform/msd_aggregate.py
+# transform/export_mart.py
 import os
 import sys
 import pandas as pd
 
-# --- Cấu hình để Python tìm thấy file config.py và db.py ở thư mục cha ---
-current_dir = os.path.dirname(os.path.abspath(__file__)) # .../transform
-parent_dir = os.path.dirname(current_dir)                # .../
+# --- Cấu hình đường dẫn để import các module ở thư mục cha ---
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from db import  create_connection_Control
+from db import create_connection_Mart
 from config import STAGING_DATA_DIR
 from etl_logger import ETLLogger
 
-def dump_aggregate_data():
+def export_mart_data():
     """
-    Thực hiện Dump dữ liệu từ bảng aggregate (songplays_daily) ra file CSV.
+    Xuất dữ liệu báo cáo từ Database Mart ra các file CSV.
     """
     # 1. Khởi tạo Logger
-    logger = ETLLogger("transform.dump_aggregate")
+    logger = ETLLogger("transform.export_mart")
     logger.start()
 
-    cur, conn = create_connection_Control()
+    cur = None
+    conn = None
+    
+    # Danh sách các bảng cần export
+    tables_to_export = [
+        "top_artists",
+        "songplays_daily",
+        "system_overview"
+    ]
     
     try:
-        print("\n=== BẮT ĐẦU DUMP AGGREGATE FILE ===")
-
-        # 2. Truy vấn dữ liệu đã tổng hợp từ DB
-        query = "SELECT date, play_count FROM songplays_daily ORDER BY date DESC;"
-        cur.execute(query)
+        print("\n=== BẮT ĐẦU EXPORT DATA MART ===")
         
-        # Lấy tên cột để tạo DataFrame
-        columns = [col[0] for col in cur.description]
-        rows = cur.fetchall()
+        # 2. Kết nối Database Mart
+        cur, conn = create_connection_Mart()
         
-        if not rows:
-            print(" Cảnh báo: Bảng songplays_daily chưa có dữ liệu.")
-            logger.log_success(0, 0, 0)
-            return
-
-        df = pd.DataFrame(rows, columns=columns)
-        row_count = len(df)
-        print(f"-> Đã lấy {row_count} dòng từ database.")
-
-        # 3. Thiết lập đường dẫn output
-        # Tạo thư mục con 'export' trong thư mục Staging Data để chứa file dump
+        # Tạo thư mục output nếu chưa có
         export_dir = os.path.join(STAGING_DATA_DIR, "export")
         os.makedirs(export_dir, exist_ok=True)
         
-        output_file = os.path.join(export_dir, "songplays_daily_dump.csv")
-
-        # 4. Xuất file CSV (Dump)
-        df.to_csv(output_file, index=False, encoding='utf-8')
-        print(f" Đã xuất file thành công: {output_file}")
+        total_rows = 0
         
-        # 5. Ghi log thành công
-        # Extracted = Loaded = số dòng ghi ra file
-        logger.log_success(extracted=row_count, loaded=row_count, rejected=0)
+        for table in tables_to_export:
+            print(f"-> Đang xử lý bảng: {table}...")
+            
+            # 3. Truy vấn dữ liệu
+            query = f"SELECT * FROM {table}"
+            cur.execute(query)
+            
+            # Lấy data và tên cột
+            rows = cur.fetchall()
+            if cur.description:
+                columns = [col[0] for col in cur.description]
+                df = pd.DataFrame(rows, columns=columns)
+            else:
+                df = pd.DataFrame()
+
+            # 4. Xuất ra CSV
+            file_name = f"mart_{table}.csv"
+            output_file = os.path.join(export_dir, file_name)
+            
+            df.to_csv(output_file, index=False, encoding='utf-8')
+            
+            row_count = len(df)
+            total_rows += row_count
+            print(f"   ✅ Đã xuất {row_count} dòng ra: {file_name}")
+
+        # 5. Ghi log tổng kết
+        logger.log_success(extracted=total_rows, loaded=total_rows, rejected=0)
+        print(f"\n=== HOÀN TẤT. Tổng cộng {total_rows} dòng dữ liệu đã được export. ===")
         
     except Exception as e:
-        print(f"Lỗi khi dump file: {e}")
+        print(f"❌ Lỗi khi export mart: {e}")
         logger.log_fail(str(e))
         raise
     finally:
@@ -66,4 +80,4 @@ def dump_aggregate_data():
             conn.close()
 
 if __name__ == "__main__":
-    dump_aggregate_data()
+    export_mart_data()

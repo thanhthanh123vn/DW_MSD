@@ -2,8 +2,12 @@
 import mysql.connector
 import random
 import sys
+import io
 import os
 
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+# --------------------------------------------
 # Cấu hình import
 from config import DB_COMMON, DB_NAMES
 
