@@ -1,6 +1,6 @@
 # scripts/transform.py
 import pandas as pd
-from db import create_connection
+from db import create_connection_Staging as create_connection
 
 def create_songplay_summary(cur, conn):
     """

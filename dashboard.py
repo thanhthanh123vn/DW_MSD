@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import subprocess
 import os
 import sys
-from db import create_connection
+from db import create_connection_Mart
 
 # --- CẤU HÌNH TRANG ---
 st.set_page_config(

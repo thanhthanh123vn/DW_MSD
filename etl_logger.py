@@ -1,5 +1,5 @@
 # etl_logger.py
-from db import create_connection
+from db import create_connection_Control
 from sql_queries import etl_log_insert, etl_log_update_success, etl_log_update_fail
 
 class ETLLogger:
@@ -12,7 +12,7 @@ class ETLLogger:
     def start(self):
         """Bắt đầu ghi log: Trạng thái RUNNING"""
         try:
-            self.cur, self.conn = create_connection()
+            self.cur, self.conn = create_connection_Control()
             self.cur.execute(etl_log_insert, (self.package_name,))
             self.conn.commit()
             self.log_id = self.cur.lastrowid

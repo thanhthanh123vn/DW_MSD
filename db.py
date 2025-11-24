@@ -3,14 +3,67 @@ import mysql.connector
 from mysql.connector import Error
 from config import DB_CONFIG
 
-def create_connection():
+def create_connection_Staging():
     """Trả về (cursor, conn) giống mã cũ."""
     try:
         conn = mysql.connector.connect(
             host=DB_CONFIG["host"],
             user=DB_CONFIG["user"],
             password=DB_CONFIG["password"],
-            database=DB_CONFIG["database"],
+            database="database_staging",
+            port=DB_CONFIG.get("port", 3306),
+            autocommit=False
+        )
+        cur = conn.cursor(buffered=True)  # buffered để fetchone() an toàn
+        print("Ket noi thanh cong toi MySQL!")
+        return cur, conn
+    except Error as e:
+        print(f"Loi ket noi DB: {e}")
+        raise
+def create_connection_Warehouse():
+    """Trả về (cursor, conn) giống mã cũ."""
+    try:
+        conn = mysql.connector.connect(
+            host=DB_CONFIG["host"],
+            user=DB_CONFIG["user"],
+            password=DB_CONFIG["password"],
+            database="database_warehouse",
+            port=DB_CONFIG.get("port", 3306),
+            autocommit=False
+        )
+        cur = conn.cursor(buffered=True)  # buffered để fetchone() an toàn
+        print("Ket noi thanh cong toi MySQL!")
+        return cur, conn
+    except Error as e:
+        print(f"Loi ket noi DB: {e}")
+        raise
+
+
+def create_connection_Control():
+    """Trả về (cursor, conn) giống mã cũ."""
+    try:
+        conn = mysql.connector.connect(
+            host=DB_CONFIG["host"],
+            user=DB_CONFIG["user"],
+            password=DB_CONFIG["password"],
+            database="database_control",
+            port=DB_CONFIG.get("port", 3306),
+            autocommit=False
+        )
+        cur = conn.cursor(buffered=True)  # buffered để fetchone() an toàn
+        print("Ket noi thanh cong toi MySQL!")
+        return cur, conn
+    except Error as e:
+        print(f"Loi ket noi DB: {e}")
+        
+def create_connection_Mart():
+    """Trả về (cursor, conn) giống mã cũ."""
+    try:
+        conn = mysql.connector.connect(
+            host=DB_CONFIG["host"],
+            user=DB_CONFIG["user"],
+            password=DB_CONFIG["password"],
+            database="database_mart",
             port=DB_CONFIG.get("port", 3306),
             autocommit=False
         )

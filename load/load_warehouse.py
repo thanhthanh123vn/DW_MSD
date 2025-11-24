@@ -2,7 +2,7 @@ import os
 import glob
 import pandas as pd
 import h5py
-from db import create_connection
+from db import  create_connection_Warehouse
 from sql_queries import artist_table_insert, song_table_insert
 from config import SONG_DATA_DIR
 
@@ -118,7 +118,7 @@ def load_to_warehouse(cur, conn):
     process_all_songs(cur, conn, SONG_DATA_DIR)
 
 def main():
-    cur, conn = create_connection()
+    cur, conn = create_connection_Warehouse()
     if not cur or not conn:
         print("Không thể kết nối tới DB. Hủy bỏ load_warehouse.")
         return

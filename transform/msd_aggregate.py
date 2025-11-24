@@ -8,7 +8,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__)) # .../transform
 parent_dir = os.path.dirname(current_dir)                # .../
 sys.path.append(parent_dir)
 
-from db import create_connection
+from db import  create_connection_Control
 from config import STAGING_DATA_DIR
 from etl_logger import ETLLogger
 
@@ -20,7 +20,7 @@ def dump_aggregate_data():
     logger = ETLLogger("transform.dump_aggregate")
     logger.start()
 
-    cur, conn = create_connection()
+    cur, conn = create_connection_Control()
     
     try:
         print("\n=== BẮT ĐẦU DUMP AGGREGATE FILE ===")

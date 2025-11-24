@@ -1,5 +1,5 @@
 
-from db import create_connection
+from db import  create_connection_Staging
 from sql_queries import create_table_queries, drop_table_queries
 
 def drop_tables(cur, conn):
@@ -21,7 +21,7 @@ def create_tables(cur, conn):
             print(f"Error creating table: {e}")
 
 def main():
-    cur, conn = create_connection()
+    cur, conn = create_connection_Staging()
     drop_tables(cur, conn)
     create_tables(cur, conn)
     conn.close()

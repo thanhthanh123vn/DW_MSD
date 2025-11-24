@@ -1,5 +1,5 @@
 # scripts/load_mart.py
-from db import create_connection
+from db import  create_connection_Mart
 
 def load_datamart(cur, conn):
     # Example: create mart table and populate from songplays_daily
@@ -19,7 +19,7 @@ def load_datamart(cur, conn):
     print("Datamart loaded/updated.")
 
 def main():
-    cur, conn = create_connection()
+    cur, conn = create_connection_Mart()
     load_datamart(cur, conn)
     conn.close()
     print("Load mart done.")

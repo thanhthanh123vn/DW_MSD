@@ -11,7 +11,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from db import create_connection
+from db import  create_connection_Staging
 from sql_queries import (
     song_table_insert,
     artist_table_insert,
@@ -110,11 +110,11 @@ def process_log_file(cur, filepath):
         df = pd.read_json(filepath, lines=True)
     except (ValueError, pd.errors.EmptyDataError, pd.errors.ParserError) as e:
         # Bắt tất cả lỗi liên quan đến định dạng file (ValueError chính là lỗi No ':' found)
-        print(f"⚠️ Bỏ qua file log lỗi: {os.path.basename(filepath)} | Lỗi: {e}")
+        print(f"Bỏ qua file log lỗi: {os.path.basename(filepath)} | Lỗi: {e}")
         STATS["rejected"] += 1
         return
     except Exception as e:
-        print(f"⚠️ Lỗi không xác định khi đọc file {filepath}: {e}")
+        print(f" Lỗi không xác định khi đọc file {filepath}: {e}")
         STATS["rejected"] += 1
         return
     # --------------------------------------------
@@ -208,7 +208,7 @@ def main():
     logger = ETLLogger("load.load_staging")
     logger.start()
     
-    cur, conn = create_connection()
+    cur, conn = create_connection_Staging()
     
     try:
         # Load song data

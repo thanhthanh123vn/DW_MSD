@@ -7,7 +7,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__)) # .../transform
 parent_dir = os.path.dirname(current_dir)                # .../
 sys.path.append(parent_dir)
 
-from db import create_connection
+from db import  create_connection_Control
 from etl_logger import ETLLogger
 
 def create_aggregate_table(cur, conn):
@@ -43,7 +43,7 @@ def main():
     logger = ETLLogger("transform.create_aggregate")
     logger.start()
 
-    cur, conn = create_connection()
+    cur, conn = create_connection_Control()
     
     try:
         # Chạy logic chính
